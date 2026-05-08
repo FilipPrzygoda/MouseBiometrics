@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rozpoznawanie AI - Biometria</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script>
+        window.TRACKER_API_ENDPOINT = '/api/recognize';
+        window.currentUser = null;
+        
+        window.onUserRecognized = function(user, confidence, isCorrect) {
+            const resultText = isCorrect ? '✅ POPRAWNIE!' : '❌ BŁĘDY!';
+            const resultColor = isCorrect ? '#4CAF50' : '#f5576c';
+            document.getElementById('recognizedUser').innerHTML = `
+                <span style="color: ${resultColor}; font-weight: 700;">${resultText}</span><br>
+                <span style="font-size: 12px; opacity: 0.9;">Model myśli: ${user} (pewność: ${(confidence*100).toFixed(1)}%)</span>
+            `;
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button id="logoutBtn" onclick="window.location.href='/'">Powrót</button>
+            <h1>✨ Rozpoznawanie AI</h1>
+            <p>Zagraj, a model AI spróbuje Cię rozpoznać (Brak zapisu do bazy)</p>
+            <div class="user-badge" style="background: rgba(255,255,255,0.4)">Zidentyfikowano: <strong id="recognizedUser">Czekam na dane...</strong></div>
+        </div>
+
+        <div class="content">
+            <div class="status-bar" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                Tryb rozpoznawania aktywny
+            </div>
+
+            <!-- Sekcja gry -->
+            <section id="gameContainer">
+                <h2>🎮 Kliknij diament!</h2>
+                <div id="gameInfo">
+                    <div class="stat-card">
+                        <label>Wynik</label>
+                        <div class="value" id="score">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <label>Czas</label>
+                        <div class="value" id="time">0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <label>Status</label>
+                        <div class="value" style="font-size: 18px; color: #999;" id="status">—</div>
+                    </div>
+                </div>
+                <div id="gameArea"></div>
+                <div id="controls">
+                    <button id="startBtn">▶️ Start Gry</button>
+                    <button id="stopBtn" disabled>⏹️ Zatrzymaj</button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Puste w recogniton.html zamiast auth.js -->
+    <script src="/static/js/tracker.js"></script>
+    <script src="/static/js/game.js"></script>
+</body>
+</html>

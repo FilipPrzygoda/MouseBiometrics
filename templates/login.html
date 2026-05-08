@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logowanie - Biometric Challenge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="card">
+            <div class="logo">✨</div>
+            <h2>Biometric Challenge</h2>
+            <p>Test szybkości reagowania<br>i precyzji Twojego ruchu</p>
+
+            <form id="loginForm">
+                <input 
+                    type="text" 
+                    id="username" 
+                    placeholder="Wpisz swoją nazwę" 
+                    required
+                    autocomplete="off"
+                >
+                <button type="submit">▶️ Tryb Zbierania Danych</button>
+            </form>
+
+            <div style="margin-top: 15px;">
+                <button onclick="window.location.href='/recognition'" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); width: 100%;">🤖 Tryb Rozpoznawania (AI)</button>
+            </div>
+
+            <div class="divider">
+                <span>O tescie</span>
+            </div>
+
+            <div class="features">
+                <div class="feature-list">
+                    <div class="feature-item">Mierz swoją szybkość reagowania</div>
+                    <div class="feature-item">Testuj precyzję kliknięcia</div>
+                    <div class="feature-item">Graj bez limitu czasu</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+</html>
