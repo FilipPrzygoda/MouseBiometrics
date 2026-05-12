@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 # Pobiera SECRET_KEY z pliku .env. Jeśli go nie znajdzie, używa wartości awaryjnej.
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'zapasowy_sekretny_klucz_lokalny')
-socketio = SocketIO(app, async_mode='eventlet')
+socketio = SocketIO(app)
 
 # Pobiera link do bazy z pliku .env. Domyślnie używa localhosta.
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
