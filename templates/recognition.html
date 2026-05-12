@@ -8,14 +8,29 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <script>
         window.TRACKER_API_ENDPOINT = '/api/recognize';
-        window.currentUser = null;
+        
+        // Funkcja żeby pobrać cookie, bo frontowi potrzebna jest informacja kogo weryfikujemy
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+        
+        window.currentUser = getCookie('user_id');
         
         window.onUserRecognized = function(user, confidence, isCorrect) {
-            const resultText = isCorrect ? '✅ POPRAWNIE!' : '❌ BŁĘDY!';
+            const resultText = isCorrect ? '✅ TO TY!' : '❌ ANOMALIA / INNY UŻYTKOWNIK!';
             const resultColor = isCorrect ? '#4CAF50' : '#f5576c';
             document.getElementById('recognizedUser').innerHTML = `
                 <span style="color: ${resultColor}; font-weight: 700;">${resultText}</span><br>
-                <span style="font-size: 12px; opacity: 0.9;">Model myśli: ${user} (pewność: ${(confidence*100).toFixed(1)}%)</span>
+                <span style="font-size: 12px; opacity: 0.9;">Pewność modelu: ${(confidence*100).toFixed(1)}%</span>
+            `;
+        };
+
+        window.onRecognitionError = function(errorMsg) {
+            document.getElementById('recognizedUser').innerHTML = `
+                <span style="color: #f5576c; font-weight: 700;">❌ BŁĄD</span><br>
+                <span style="font-size: 12px; opacity: 0.9;">${errorMsg}</span>
             `;
         };
     </script>

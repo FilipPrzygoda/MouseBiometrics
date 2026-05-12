@@ -42,10 +42,37 @@
                 <div id="controls">
                     <button id="startBtn">▶️ Start Gry</button>
                     <button id="stopBtn" disabled>⏹️ Zatrzymaj</button>
+                    <button id="trainBtn" onclick="trainModel()" style="background-color: #2196F3; margin-left: 10px; color: white;">🧠 Trenuj Model</button>
                 </div>
             </section>
         </div>
     </div>
+
+    <script>
+        function trainModel() {
+            const btn = document.getElementById('trainBtn');
+            btn.disabled = true;
+            btn.innerHTML = "⏳ Trenowanie...";
+            
+            fetch('/api/train', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        alert('✅ ' + data.message);
+                    } else {
+                        alert('❌ Błąd: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    alert('❌ Serwer nie odpowiada.');
+                    console.error(err);
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = "🧠 Trenuj Model";
+                });
+        }
+    </script>
 
     <script src="/static/js/auth.js"></script>
     <script src="/static/js/tracker.js"></script>

@@ -1,14 +1,23 @@
+import os
+from dotenv import load_dotenv
 from flask import Flask, redirect, render_template, request, url_for, jsonify
 from flask_socketio import SocketIO
 from pymongo import MongoClient
 import time
+from ai_model import BiometricAuthModel
+
+# Wczytanie zmiennych z pliku .env (jeśli istnieje)
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'sekretny_klucz_projektu_fpdl'
+
+# Pobiera SECRET_KEY z pliku .env. Jeśli go nie znajdzie, używa wartości awaryjnej.
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'zapasowy_sekretny_klucz_lokalny')
 socketio = SocketIO(app, async_mode='eventlet')
 
-# Konfiguracja MongoDB
-client = MongoClient('mongodb://localhost:27017/')
+# Pobiera link do bazy z pliku .env. Domyślnie używa localhosta.
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+client = MongoClient(MONGO_URI)
 db = client['biometria_db']
 collection = db['sesje_uzytkownikow']
 
@@ -62,10 +71,59 @@ def recognize_biometrics():
         username = request.cookies.get('user_id')
         if not username:
             return jsonify({'status': 'error', 'message': 'Brak autoryzacji'}), 401
-        # Tutaj można dodać logikę rozpoznawania na podstawie danych biometrycznych
-        # na razie zostawiamy puste, bo to będzie część AI
-        return jsonify({'status': 'success', 'message': 'Dane otrzymane, ale rozpoznawanie nie jest jeszcze zaimplementowane'})
+        
+        # Inicjalizacja modelu dla użytkownika
+        model = BiometricAuthModel(username)
+        
+        if not model.is_trained:
+             return jsonify({'status': 'error', 'message': 'Model nie jest jeszcze wytrenowany dla tego użytkownika'}), 400
+
+        # Przekazanie zgromadzonych do weryfikacji danych
+        result = model.predict(data.get('events', []))
+        
+        if result is None:
+             return jsonify({'status': 'error', 'message': 'Brak wystarczających punktów trajektorii w przesłanych danych'}), 400
+
+        return jsonify({
+            'status': 'success',
+            'recognized_user': username,
+            'is_correct': result['is_correct_user'],
+            'confidence': result['confidence']
+        })
+
     return jsonify({'status': 'error', 'message': 'Puste dane'}), 400
+
+@app.route('/api/train', methods=['POST'])
+def train_model():
+    username = request.cookies.get('user_id')
+    if not username:
+        return jsonify({'status': 'error', 'message': 'Brak autoryzacji'}), 401
+        
+    model = BiometricAuthModel(username)
+    success = model.train_model()
+    
+    if success:
+        return jsonify({'status': 'success', 'message': 'Model został pomyślnie wytrenowany i zapisany.'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Za mało zgromadzonych danych aby wytrenować model.'}), 400
+
+@app.route('/api/evaluate', methods=['GET'])
+def evaluate_user_model():
+    username = request.args.get('username')
+    if not username:
+        username = request.cookies.get('user_id')
+        
+    if not username:
+        return jsonify({'status': 'error', 'message': 'Brak użytkownika do ewaluacji'}), 400
+        
+    model = BiometricAuthModel(username)
+    results = model.evaluate_performance()
+    
+    if results:
+        return jsonify({'status': 'success', 'evaluation': results})
+    else:
+        return jsonify({'status': 'error', 'message': 'Ewaluacja nie powiodła się. Za mało danych.'}), 400
+
 if __name__ == '__main__':
     # Uruchomienie serwera z obsługą WebSockets
     socketio.run(app, debug=True, port=5000)

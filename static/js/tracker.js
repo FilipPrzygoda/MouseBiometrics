@@ -47,11 +47,16 @@ window.BiometricTracker = (function() {
         .then(response => response.json())
         .then(data => {
             console.log('Dane odebrane z serwera:', data);
-            if (data.recognized_user && window.onUserRecognized) {
+            if (data.status === 'success' && data.recognized_user && window.onUserRecognized) {
                 window.onUserRecognized(data.recognized_user, data.confidence, data.is_correct);
+            } else if (data.status === 'error' && window.onRecognitionError) {
+                window.onRecognitionError(data.message);
             }
         })
-        .catch(err => console.error('Błąd zapisu danych:', err));
+        .catch(err => {
+            console.error('Błąd zapisu danych:', err);
+            if (window.onRecognitionError) window.onRecognitionError("Błąd serwera lub sieci");
+        });
         
         // Wyczyść po wysłaniu
         biometricData = [];

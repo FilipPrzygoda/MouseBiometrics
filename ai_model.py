@@ -4,6 +4,8 @@ from pymongo import MongoClient
 import math
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 import joblib
 import os
 
@@ -20,7 +22,7 @@ class BiometricAuthModel:
         self.model = IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
         self.is_trained = False
         
-        self.models_dir = 'models'
+        self.models_dir = 'isolation_forest'
         if not os.path.exists(self.models_dir):
             os.makedirs(self.models_dir)
             
@@ -151,6 +153,68 @@ class BiometricAuthModel:
         
         return True
         
+    def evaluate_performance(self):
+        """Dzieli zebrane dane na treningowe, walidacyjne i testowe, by zbadać zachowanie profilowania."""
+        cursor = self.collection.find({'username': self.username})
+        all_features = []
+        
+        for record in cursor:
+            events = record.get('events', [])
+            session_features = self._process_raw_data(events)
+            all_features.extend(session_features)
+            
+        if len(all_features) < 20: # Dla testów lepiej mieć co najmniej ok. 20 zdarzeń
+            print("Zbyt mało danych do solidnej walidacji i ewaluacji.")
+            return None
+            
+        X = np.array(all_features)
+        
+        # Generowanie sztucznych "intruzów" (szum wzięty z innej dystrybucji lub np. randomowy w otoczeniu danych z małą szansą żeby lepiej ocenić model)
+        # Na razie oceniamy po parametrze False Rejection Rate na prawdziwym graczu. 
+        # Zbiór testowy/walidacyjny zawierać będzie "pozytywne próby" (1)
+        y = np.ones(len(X)) # etykieta 1 = to ten użytkownik
+        
+        # Podział na trenining (60%), walidację (20%) i test (20%)
+        try:
+            X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.4, random_state=42)
+            X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+        except ValueError as e:
+            print("Błąd podziału:", e)
+            return None
+            
+        # Niezależny scaler i model tylko do oceny, aby nie nadpisywać głównego (można opcjonalnie nadpisać)
+        eval_scaler = StandardScaler()
+        eval_model = IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
+        
+        X_train_scaled = eval_scaler.fit_transform(X_train)
+        X_val_scaled = eval_scaler.transform(X_val)
+        X_test_scaled = eval_scaler.transform(X_test)
+        
+        eval_model.fit(X_train_scaled)
+        
+        # Predykcja
+        val_preds = eval_model.predict(X_val_scaled)
+        test_preds = eval_model.predict(X_test_scaled)
+        
+        # Isolation Forest zwraca 1 (inlier) lub -1 (outlier). Ponieważ dostarczamy własne dane, powinniśmy oczekiwać 1
+        val_accuracy = accuracy_score(y_val, val_preds) 
+        test_accuracy = accuracy_score(y_test, test_preds)
+        
+        # Statystyki do JSON 
+        results = {
+            'total_samples': len(X),
+            'train_size': len(X_train),
+            'val_size': len(X_val),
+            'test_size': len(X_test),
+            'metrics': {
+                'validation_accuracy_true_user': float(val_accuracy),
+                'test_accuracy_true_user': float(test_accuracy),
+                'false_rejection_rate': float(1.0 - test_accuracy)
+            }
+        }
+        
+        return results
+
     def predict(self, raw_events):
         """Zwraca wynik dla nowej próbki (z nowej sesji) czy to ten sam użytkownik (1) czy anomalia (-1)."""
         if not self.is_trained:
