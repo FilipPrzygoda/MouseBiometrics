@@ -62,14 +62,20 @@ def save_biometrics():
 # Trasa dla strony rozpoznawania
 @app.route('/recognition')
 def recognition():
+    username = request.cookies.get('user_id')
+    if not username:
+        return redirect(url_for('login'))
     return render_template('recognition.html')
 
 # Trasa do rozpoznawania (bez zapisu do bazy)
 @app.route('/api/recognize', methods=['POST'])
 def recognize_biometrics():
+
     data = request.json
     if data:
+        # Pobierz username z cookie (jak w dashboard)
         username = request.cookies.get('user_id')
+        
         if not username:
             return jsonify({'status': 'error', 'message': 'Brak autoryzacji'}), 401
         
@@ -83,6 +89,9 @@ def recognize_biometrics():
             if result is None:
                 return jsonify({'status': 'error', 'message': 'Brak wystarczających danych w przesłanej sesji'}), 400
 
+            # Logging wyniku
+            print(f"[API] Zwracam wynik predykcji: is_correct={result['is_correct_user']}, confidence={result['confidence']:.4f}")
+            
             return jsonify({
                 'status': 'success',
                 'recognized_user': username,
@@ -90,8 +99,10 @@ def recognize_biometrics():
                 'confidence': result['confidence']
             })
         except FileNotFoundError as e:
+            print(f"[API] Błąd: {str(e)}")
             return jsonify({'status': 'error', 'message': str(e)}), 400
         except Exception as e:
+            print(f"[API] Błąd predykcji: {str(e)}")
             return jsonify({'status': 'error', 'message': f'Błąd predykcji: {str(e)}'}), 500
 
     return jsonify({'status': 'error', 'message': 'Puste dane'}), 400
@@ -103,21 +114,31 @@ def train_model():
         return jsonify({'status': 'error', 'message': 'Brak autoryzacji'}), 401
         
     try:
+        print(f"\n{'='*60}")
+        print(f"[TRENING] Rozpoczęcie treningu modelu dla: {username}")
+        print(f"{'='*60}")
+        
         # Inicjalizacja trenera dla użytkownika
         trainer = BiometricTrainer(username, db_uri=MONGO_URI)
         success = trainer.train()
         
         if success:
+            print(f"[TRENING] ✅ Trening pomyślnie zakończony!")
+            print(f"{'='*60}\n")
             return jsonify({
                 'status': 'success',
                 'message': 'Model został pomyślnie wytrenowany i zapisany.'
             })
         else:
+            print(f"[TRENING] ❌ Trening nie powiódł się!")
+            print(f"{'='*60}\n")
             return jsonify({
                 'status': 'error',
                 'message': 'Za mało zgromadzonych danych aby wytrenować model.'
             }), 400
     except Exception as e:
+        print(f"[TRENING] ❌ Błąd: {str(e)}")
+        print(f"{'='*60}\n")
         return jsonify({
             'status': 'error',
             'message': f'Błąd treningu: {str(e)}'

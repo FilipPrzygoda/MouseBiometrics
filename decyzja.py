@@ -99,6 +99,14 @@ class BiometricDecision:
         confidence = np.mean(predictions)
         is_correct_user = confidence >= 0.5
         
+        # Logging konsoli
+        decision_text = "✅ AUTENTYCZNY" if is_correct_user else "❌ ANOMALIA/INNY"
+        print(f"\n[DECYZJA] Użytkownik: {self.username}")
+        print(f"[DECYZJA] Liczba ruchów w sesji: {len(predictions)}")
+        print(f"[DECYZJA] Predykcja: {decision_text}")
+        print(f"[DECYZJA] Pewność modelu: {confidence:.4f} ({confidence*100:.1f}%)")
+        print()
+        
         return {
             'is_correct_user': bool(is_correct_user),
             'confidence': float(confidence)
@@ -128,6 +136,15 @@ class BiometricDecision:
         
         confidence = np.mean(predictions)
         is_correct_user = confidence >= 0.5
+        
+        # Logging konsoli
+        decision_text = "✅ AUTENTYCZNY" if is_correct_user else "❌ ANOMALIA/INNY"
+        print(f"\n[DECYZJA-SZCZEGÓŁY] Użytkownik: {self.username}")
+        print(f"[DECYZJA-SZCZEGÓŁY] Liczba ruchów w sesji: {len(predictions)}")
+        print(f"[DECYZJA-SZCZEGÓŁY] Predykcje per ruch: {[int(p) for p in predictions]}")
+        print(f"[DECYZJA-SZCZEGÓŁY] Predykcja: {decision_text}")
+        print(f"[DECYZJA-SZCZEGÓŁY] Pewność modelu: {confidence:.4f} ({confidence*100:.1f}%)")
+        print()
         
         return {
             'is_correct_user': bool(is_correct_user),
