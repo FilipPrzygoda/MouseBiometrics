@@ -1,1 +1,1 @@
-.env
+.envpython -c 'import secrets; print(secrets.token_hex(16))'
