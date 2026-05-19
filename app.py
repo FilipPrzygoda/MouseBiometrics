@@ -4,7 +4,8 @@ from flask import Flask, redirect, render_template, request, url_for, jsonify
 from flask_socketio import SocketIO
 from pymongo import MongoClient
 import time
-from ai_model import BiometricAuthModel
+from trening import BiometricTrainer
+from decyzja import BiometricDecision
 
 # Wczytanie zmiennych z pliku .env (jeśli istnieje)
 load_dotenv()
@@ -72,24 +73,26 @@ def recognize_biometrics():
         if not username:
             return jsonify({'status': 'error', 'message': 'Brak autoryzacji'}), 401
         
-        # Inicjalizacja modelu dla użytkownika
-        model = BiometricAuthModel(username)
-        
-        if not model.is_trained:
-             return jsonify({'status': 'error', 'message': 'Model nie jest jeszcze wytrenowany dla tego użytkownika'}), 400
+        try:
+            # Inicjalizacja modelu decyzyjnego dla użytkownika
+            decision_model = BiometricDecision(username)
+            
+            # Wykonanie predykcji na bazie przesłanych danych
+            result = decision_model.predict(data.get('events', []))
+            
+            if result is None:
+                return jsonify({'status': 'error', 'message': 'Brak wystarczających danych w przesłanej sesji'}), 400
 
-        # Przekazanie zgromadzonych do weryfikacji danych
-        result = model.predict(data.get('events', []))
-        
-        if result is None:
-             return jsonify({'status': 'error', 'message': 'Brak wystarczających punktów trajektorii w przesłanych danych'}), 400
-
-        return jsonify({
-            'status': 'success',
-            'recognized_user': username,
-            'is_correct': result['is_correct_user'],
-            'confidence': result['confidence']
-        })
+            return jsonify({
+                'status': 'success',
+                'recognized_user': username,
+                'is_correct': result['is_correct_user'],
+                'confidence': result['confidence']
+            })
+        except FileNotFoundError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Błąd predykcji: {str(e)}'}), 500
 
     return jsonify({'status': 'error', 'message': 'Puste dane'}), 400
 
@@ -99,30 +102,44 @@ def train_model():
     if not username:
         return jsonify({'status': 'error', 'message': 'Brak autoryzacji'}), 401
         
-    model = BiometricAuthModel(username)
-    success = model.train_model()
-    
-    if success:
-        return jsonify({'status': 'success', 'message': 'Model został pomyślnie wytrenowany i zapisany.'})
-    else:
-        return jsonify({'status': 'error', 'message': 'Za mało zgromadzonych danych aby wytrenować model.'}), 400
+    try:
+        # Inicjalizacja trenera dla użytkownika
+        trainer = BiometricTrainer(username, db_uri=MONGO_URI)
+        success = trainer.train()
+        
+        if success:
+            return jsonify({
+                'status': 'success',
+                'message': 'Model został pomyślnie wytrenowany i zapisany.'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Za mało zgromadzonych danych aby wytrenować model.'
+            }), 400
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Błąd treningu: {str(e)}'
+        }), 500
 
-@app.route('/api/evaluate', methods=['GET'])
-def evaluate_user_model():
-    username = request.args.get('username')
+@app.route('/api/model-status', methods=['GET'])
+def model_status():
+    """Sprawdza status modelu dla zalogowanego użytkownika."""
+    username = request.cookies.get('user_id')
     if not username:
-        username = request.cookies.get('user_id')
-        
-    if not username:
-        return jsonify({'status': 'error', 'message': 'Brak użytkownika do ewaluacji'}), 400
-        
-    model = BiometricAuthModel(username)
-    results = model.evaluate_performance()
+        return jsonify({'status': 'error', 'message': 'Brak autoryzacji'}), 401
     
-    if results:
-        return jsonify({'status': 'success', 'evaluation': results})
-    else:
-        return jsonify({'status': 'error', 'message': 'Ewaluacja nie powiodła się. Za mało danych.'}), 400
+    import os
+    models_dir = 'models'
+    model_path = os.path.join(models_dir, f'model_{username}.pkl')
+    is_trained = os.path.exists(model_path)
+    
+    return jsonify({
+        'status': 'success',
+        'username': username,
+        'model_trained': is_trained
+    })
 
 if __name__ == '__main__':
     # Uruchomienie serwera z obsługą WebSockets
